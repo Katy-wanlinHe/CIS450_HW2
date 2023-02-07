@@ -19,16 +19,17 @@ connection.connect((err) => err && console.log(err));
 // Route 1: GET /author/:type
 const author = async function(req, res) {
   // TODO (TASK 1): replace the values of name and pennKey with your own
-  const name = 'John Doe';
-  const pennKey = 'jdoe';
+  const name = 'Katy He';
+  const pennKey = 'katyhe';
 
   // checks the value of type the request parameters
   // note that parameters are required and are specified in server.js in the endpoint by a colon (e.g. /author/:type)
   if (req.params.type === 'name') {
     // res.send returns data back to the requester via an HTTP response
     res.send(`Created by ${name}`);
-  } else if (null) {
+  } else if (req.params.type === 'pennkey') {
     // TODO (TASK 2): edit the else if condition to check if the request parameter is 'pennkey' and if so, send back response 'Created by [pennkey]'
+    res.send(`Created by ${pennKey}`);
   } else {
     // we can also send back an HTTP status code to indicate an improper request
     res.status(400).send(`'${req.params.type}' is not a valid author type. Valid types are 'name' and 'pennkey'.`);
@@ -62,7 +63,7 @@ const random = async function(req, res) {
       // so we just directly access the first element of the query results array (data)
       // TODO (TASK 3): also return the song title in the response
       res.json({
-        song_id: data[0].song_id,
+        song_id: data[0].song_id, title: data[0].title
       });
     }
   });
@@ -76,7 +77,11 @@ const random = async function(req, res) {
 const song = async function(req, res) {
   // TODO (TASK 4): implement a route that given a song_id, returns all information about the song
   // Most of the code is already written for you, you just need to fill in the query
-  connection.query(``, (err, data) => {
+  connection.query(`
+    SELECT *
+    FROM Songs
+    WHERE Songs.song_id = ${req.params.song_id}
+  `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
       res.json({});
@@ -89,20 +94,54 @@ const song = async function(req, res) {
 // Route 4: GET /album/:album_id
 const album = async function(req, res) {
   // TODO (TASK 5): implement a route that given a album_id, returns all information about the album
-  res.json({}); // replace this with your implementation
+  connection.query(`
+    SELECT *
+    FROM Albums
+    WHERE album_id = ${req.params.album_id}
+  `, (err, data) => {
+    if (err || data.length === 0) {
+      console.log(err);
+      res.json({});
+    } else {
+      res.json(data[0]);
+    }
+  });
 }
 
 // Route 5: GET /albums
 const albums = async function(req, res) {
   // TODO (TASK 6): implement a route that returns all albums ordered by release date (descending)
   // Note that in this case you will need to return multiple albums, so you will need to return an array of objects
-  res.json([]); // replace this with your implementation
+  connection.query(`
+    SELECT *
+    FROM Albums
+    ORDER BY release_date
+  `, (err, data) => {
+    if (err || data.length === 0) {
+      console.log(err);
+      res.json({});
+    } else {
+      res.json(data);
+    }
+  });
 }
 
 // Route 6: GET /album_songs/:album_id
 const album_songs = async function(req, res) {
   // TODO (TASK 7): implement a route that given an album_id, returns all songs on that album ordered by track number (ascending)
-  res.json([]); // replace this with your implementation
+  connection.query(`
+  SELECT *
+  FROM Songs S
+  WHERE S.album_id = ${req.params.album_id}
+  ORDER BY S.number
+`, (err, data) => {
+  if (err || data.length === 0) {
+    console.log(err);
+    res.json({});
+  } else {
+    res.json(data);
+  }
+});
 }
 
 /************************
