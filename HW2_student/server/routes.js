@@ -51,7 +51,7 @@ const random = async function(req, res) {
     WHERE explicit <= ${explicit}
     ORDER BY RAND()
     LIMIT 1
-  `, (err, data) => {
+    `, (err, data) => {
     if (err || data.length === 0) {
       // if there is an error for some reason, or if the query is empty (this should not be possible)
       // print the error message and return an empty object instead
@@ -81,7 +81,7 @@ const song = async function(req, res) {
     SELECT *
     FROM Songs
     WHERE Songs.song_id = ${req.params.song_id}
-  `, (err, data) => {
+    `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
       res.json({});
@@ -116,7 +116,7 @@ const albums = async function(req, res) {
     SELECT album_id, title, release_date, thumbnail_url
     FROM Albums
     ORDER BY release_date
-  `, (err, data) => {
+    `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
       res.json({});
@@ -130,18 +130,18 @@ const albums = async function(req, res) {
 const album_songs = async function(req, res) {
   // TODO (TASK 7): implement a route that given an album_id, returns all songs on that album ordered by track number (ascending)
   connection.query(`
-  SELECT song_id, title, number, duration, plays
-  FROM Songs S
-  WHERE S.album_id = ${req.params.album_id}
-  ORDER BY S.number
-`, (err, data) => {
-  if (err || data.length === 0) {
-    console.log(err);
-    res.json({});
-  } else {
-    res.json(data);
-  }
-});
+    SELECT song_id, title, number, duration, plays
+    FROM Songs
+    WHERE album_id = ${req.params.album_id}
+    ORDER BY number
+    `, (err, data) => {
+    if (err || data.length === 0) {
+      console.log(err);
+      res.json({});
+    } else {
+      res.json(data);
+    }
+  });
 }
 
 /************************
@@ -161,7 +161,7 @@ const top_songs = async function(req, res) {
       SELECT song_id, title, number, duration, plays
       FROM Songs
       ORDER BY plays
-    `, (err, data) => {
+      `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
         res.json({});
@@ -178,7 +178,7 @@ const top_songs = async function(req, res) {
       ORDER BY plays
       OFFSET (${page}-1)*${pageSize}  ROWS
       FETCH NEXT ${pageSize} ROWS ONLY
-    `, (err, data) => {
+      `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
         res.json({});
@@ -204,7 +204,7 @@ const top_albums = async function(req, res) {
       FROM Albums A join Songs S on A.album_id = S.album_id
       ORDER BY SUM(plays)
       GROUP BY A.album_id, A.title 
-    `, (err, data) => {
+      `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
         res.json({});
@@ -228,6 +228,7 @@ const top_albums = async function(req, res) {
         res.json(data);
       }
     });
+  }
 }
 
 // Route 9: GET /search_albums
@@ -286,6 +287,7 @@ const search_songs = async function(req, res) {
         res.json(data);
       }
     });
+  }
 }
 
 module.exports = {
@@ -297,5 +299,5 @@ module.exports = {
   album_songs,
   top_songs,
   top_albums,
-  search_songs,
+  search_songs, 
 }
