@@ -95,7 +95,7 @@ const song = async function(req, res) {
 const album = async function(req, res) {
   // TODO (TASK 5): implement a route that given a album_id, returns all information about the album
   connection.query(`
-    SELECT *
+    SELECT album_id, title, release_date, thumbnail_url
     FROM Albums
     WHERE album_id = ${req.params.album_id}
   `, (err, data) => {
@@ -113,7 +113,7 @@ const albums = async function(req, res) {
   // TODO (TASK 6): implement a route that returns all albums ordered by release date (descending)
   // Note that in this case you will need to return multiple albums, so you will need to return an array of objects
   connection.query(`
-    SELECT *
+    SELECT album_id, title, release_date, thumbnail_url
     FROM Albums
     ORDER BY release_date
   `, (err, data) => {
@@ -130,7 +130,7 @@ const albums = async function(req, res) {
 const album_songs = async function(req, res) {
   // TODO (TASK 7): implement a route that given an album_id, returns all songs on that album ordered by track number (ascending)
   connection.query(`
-  SELECT *
+  SELECT song_id, title, number, duration, plays
   FROM Songs S
   WHERE S.album_id = ${req.params.album_id}
   ORDER BY S.number
@@ -152,16 +152,40 @@ const album_songs = async function(req, res) {
 const top_songs = async function(req, res) {
   const page = req.query.page;
   // TODO (TASK 8): use the ternary (or nullish) operator to set the pageSize based on the query or default to 10
-  const pageSize = undefined;
+  const pageSize = req.query.page_size != null ? req.query.page_size : 10;
 
   if (!page) {
     // TODO (TASK 9)): query the database and return all songs ordered by number of plays (descending)
     // Hint: you will need to use a JOIN to get the album title as well
-    res.json([]); // replace this with your implementation
+    connection.query(`
+      SELECT song_id, title, number, duration, plays
+      FROM Songs
+      ORDER BY plays
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
   } else {
     // TODO (TASK 10): reimplement TASK 9 with pagination
     // Hint: use LIMIT and OFFSET (see https://www.w3schools.com/php/php_mysql_select_limit.asp)
-    res.json([]); // replace this with your implementation
+    connection.query(`
+      SELECT song_id, title, number, duration, plays
+      FROM Songs
+      ORDER BY plays
+      OFFSET (${page}-1)*${pageSize}  ROWS
+      FETCH NEXT ${pageSize} ROWS ONLY
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
   }
 }
 
@@ -169,7 +193,41 @@ const top_songs = async function(req, res) {
 const top_albums = async function(req, res) {
   // TODO (TASK 11): return the top albums ordered by aggregate number of plays of all songs on the album (descending), with optional pagination (as in route 7)
   // Hint: you will need to use a JOIN and aggregation to get the total plays of songs in an album
-  res.json([]); // replace this with your implementation
+  const page = req.query.page;
+  const pageSize = req.query.page_size != null ? req.query.page_size : 10;
+
+  if (!page) {
+    // TODO (TASK 9)): query the database and return all songs ordered by number of plays (descending)
+    // Hint: you will need to use a JOIN to get the album title as well
+    connection.query(`
+      SELECT A.album_id as album_id, A.title as title, Sum(S.plays) as plays
+      FROM Albums A join Songs S on A.album_id = S.album_id
+      ORDER BY SUM(plays)
+      GROUP BY A.album_id, A.title 
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
+  } else { 
+    connection.query(`
+      SELECT A.album_id as album_id, A.title as title, Sum(S.plays) as plays
+      FROM Albums A join Songs S on A.album_id = S.album_id
+      ORDER BY SUM(plays)
+      GROUP BY A.album_id, A.title 
+      OFFSET (${page}-1)*${pageSize}  ROWS
+      FETCH NEXT ${pageSize} ROWS ONLY
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
 }
 
 // Route 9: GET /search_albums
@@ -179,8 +237,55 @@ const search_songs = async function(req, res) {
   const title = req.query.title ?? '';
   const durationLow = req.query.duration_low ?? 60;
   const durationHigh = req.query.duration_high ?? 660;
+  const playsLow = req.query.plays_low ?? 0;
+  const playsHigh = req.query.plays_high ?? 1100000000;
+  const danceabilityLow = req.query.danceability_low ?? 0;
+  const danceabilityHigh = req.query.danceability_high ?? 1; 
+  const energyLow = req.query.energy_low ?? 0;
+  const energyHigh = req.query.energy_high ?? 1;
+  const valenceLow = req.query.valence_low ?? 0;
+  const valenceHigh = req.query.valence_low ?? 1; 
 
-  res.json([]); // replace this with your implementation
+  const explicit = req.query.explicit !== undefined ? req.query.explicit : true;
+  
+  if (title != '') {
+    connection.query(`
+      SELECT *
+      FROM Songs
+      WHERE title = ${title} and explicit = ${explicit}
+        and duration >= ${durationLow} and duration <= ${durationHigh} 
+        and plays >= ${playsLow} and plays <= ${playsHigh}
+        and danceability >= ${danceabilityLow} and danceability <= ${danceabilityHigh}
+        and energy >= ${energyLow} and energy <= ${energyHigh}
+        and valence >= ${valenceLow} and valence <= ${valenceHigh}   
+      ORDER BY title
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
+  } else { 
+    connection.query(`
+    SELECT *
+    FROM Songs
+    WHERE explicit = ${explicit}
+      and duration >= ${durationLow} and duration <= ${durationHigh} 
+      and plays >= ${playsLow} and plays <= ${playsHigh}
+      and danceability >= ${danceabilityLow} and danceability <= ${danceabilityHigh}
+      and energy >= ${energyLow} and energy <= ${energyHigh}
+      and valence >= ${valenceLow} and valence <= ${valenceHigh}   
+    ORDER BY title
+    `, (err, data) => {
+      if (err || data.length === 0) {
+        console.log(err);
+        res.json({});
+      } else {
+        res.json(data);
+      }
+    });
 }
 
 module.exports = {
