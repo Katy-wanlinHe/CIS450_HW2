@@ -19,7 +19,7 @@ connection.connect((err) => err && console.log(err));
 // Route 1: GET /author/:type
 const author = async function(req, res) {
   // TODO (TASK 1): replace the values of name and pennKey with your own
-  const name = 'Katy He';
+  const name = 'Wanlin He';
   const pennKey = 'katyhe';
 
   // checks the value of type the request parameters
@@ -80,7 +80,7 @@ const song = async function(req, res) {
   connection.query(`
     SELECT *
     FROM Songs
-    WHERE Songs.song_id = ${req.params.song_id}
+    WHERE song_id = '${req.params.song_id}'
     `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
@@ -97,7 +97,7 @@ const album = async function(req, res) {
   connection.query(`
     SELECT album_id, title, release_date, thumbnail_url
     FROM Albums
-    WHERE album_id = ${req.params.album_id}
+    WHERE album_id = '${req.params.album_id}'
   `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
@@ -115,7 +115,7 @@ const albums = async function(req, res) {
   connection.query(`
     SELECT album_id, title, release_date, thumbnail_url
     FROM Albums
-    ORDER BY release_date
+    ORDER BY release_date desc
     `, (err, data) => {
     if (err || data.length === 0) {
       console.log(err);
@@ -132,7 +132,7 @@ const album_songs = async function(req, res) {
   connection.query(`
     SELECT song_id, title, number, duration, plays
     FROM Songs
-    WHERE album_id = ${req.params.album_id}
+    WHERE album_id = '${req.params.album_id}'
     ORDER BY number
     `, (err, data) => {
     if (err || data.length === 0) {
@@ -152,15 +152,17 @@ const album_songs = async function(req, res) {
 const top_songs = async function(req, res) {
   const page = req.query.page;
   // TODO (TASK 8): use the ternary (or nullish) operator to set the pageSize based on the query or default to 10
-  const pageSize = req.query.page_size != null ? req.query.page_size : 10;
+  const pageSize = req.query.page_size ?? 10;
+  const offset = (page-1)*pageSize;
 
   if (!page) {
     // TODO (TASK 9)): query the database and return all songs ordered by number of plays (descending)
     // Hint: you will need to use a JOIN to get the album title as well
     connection.query(`
-      SELECT song_id, title, number, duration, plays
-      FROM Songs
-      ORDER BY plays
+      SELECT S.song_id as song_id, S.title as title, S.album_id as album_id, A.title as album, 
+        S.plays as plays 
+      FROM Songs S join Albums A on A.album_id = S.album_id
+      ORDER BY S.plays desc
       `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
@@ -173,11 +175,12 @@ const top_songs = async function(req, res) {
     // TODO (TASK 10): reimplement TASK 9 with pagination
     // Hint: use LIMIT and OFFSET (see https://www.w3schools.com/php/php_mysql_select_limit.asp)
     connection.query(`
-      SELECT song_id, title, number, duration, plays
-      FROM Songs
-      ORDER BY plays
-      OFFSET (${page}-1)*${pageSize}  ROWS
-      FETCH NEXT ${pageSize} ROWS ONLY
+      SELECT S.song_id as song_id, S.title as title, S.album_id as album_id, A.title as album, 
+        S.plays as plays 
+      FROM Songs S join Albums A on A.album_id = S.album_id
+      ORDER BY S.plays desc
+      LIMIT ${pageSize}
+      OFFSET ${offset}
       `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
@@ -194,7 +197,8 @@ const top_albums = async function(req, res) {
   // TODO (TASK 11): return the top albums ordered by aggregate number of plays of all songs on the album (descending), with optional pagination (as in route 7)
   // Hint: you will need to use a JOIN and aggregation to get the total plays of songs in an album
   const page = req.query.page;
-  const pageSize = req.query.page_size != null ? req.query.page_size : 10;
+  const pageSize = req.query.page_size ?? 10;
+  const offset = (page-1)*pageSize;
 
   if (!page) {
     // TODO (TASK 9)): query the database and return all songs ordered by number of plays (descending)
@@ -202,8 +206,8 @@ const top_albums = async function(req, res) {
     connection.query(`
       SELECT A.album_id as album_id, A.title as title, Sum(S.plays) as plays
       FROM Albums A join Songs S on A.album_id = S.album_id
-      ORDER BY SUM(plays)
-      GROUP BY A.album_id, A.title 
+      GROUP BY A.album_id, A.title
+      ORDER BY plays desc
       `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
@@ -216,10 +220,10 @@ const top_albums = async function(req, res) {
     connection.query(`
       SELECT A.album_id as album_id, A.title as title, Sum(S.plays) as plays
       FROM Albums A join Songs S on A.album_id = S.album_id
-      ORDER BY SUM(plays)
-      GROUP BY A.album_id, A.title 
-      OFFSET (${page}-1)*${pageSize}  ROWS
-      FETCH NEXT ${pageSize} ROWS ONLY
+      GROUP BY A.album_id, A.title
+      ORDER BY plays desc
+      LIMIT ${pageSize}
+      OFFSET ${offset}
     `, (err, data) => {
       if (err || data.length === 0) {
         console.log(err);
@@ -245,15 +249,15 @@ const search_songs = async function(req, res) {
   const energyLow = req.query.energy_low ?? 0;
   const energyHigh = req.query.energy_high ?? 1;
   const valenceLow = req.query.valence_low ?? 0;
-  const valenceHigh = req.query.valence_low ?? 1; 
+  const valenceHigh = req.query.valence_high ?? 1; 
 
-  const explicit = req.query.explicit !== undefined ? req.query.explicit : true;
+  const explicit = req.query.explicit === 'true' ? 1 : 0;
   
   if (title != '') {
     connection.query(`
       SELECT *
       FROM Songs
-      WHERE title = ${title} and explicit = ${explicit}
+      WHERE title LIKE '%${title}%' and explicit <= ${explicit}
         and duration >= ${durationLow} and duration <= ${durationHigh} 
         and plays >= ${playsLow} and plays <= ${playsHigh}
         and danceability >= ${danceabilityLow} and danceability <= ${danceabilityHigh}
@@ -272,7 +276,7 @@ const search_songs = async function(req, res) {
     connection.query(`
     SELECT *
     FROM Songs
-    WHERE explicit = ${explicit}
+    WHERE explicit <= ${explicit}
       and duration >= ${durationLow} and duration <= ${durationHigh} 
       and plays >= ${playsLow} and plays <= ${playsHigh}
       and danceability >= ${danceabilityLow} and danceability <= ${danceabilityHigh}
